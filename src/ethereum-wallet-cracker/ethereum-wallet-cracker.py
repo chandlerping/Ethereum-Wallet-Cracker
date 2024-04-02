@@ -4,7 +4,7 @@
 # Not actively updated - use at your own risk
 
 import os, sys, csv, eth_utils
-from web3 import Web3, WebSocketProvider
+from web3 import Web3
 from eth_account.account import Account
 from configparser import ConfigParser
 from sys import getsizeof
@@ -134,9 +134,9 @@ def connect(connectionUrl):
 	print("[INFO] Connecting to Ethereum mainnet ...")
 	try:
 		if (connectionUrl.startswith('wss')): # Websockets
-			const web3Instance = new Web3(new WebSocketProvider(connectionUrl))
+			web3Instance = Web3(Web3.WebSocketProvider(connectionUrl))
 		else: # HTTP(S)
-			const web3Instance = Web3(Web3.HTTPProvider(connectionUrl))
+			web3Instance = Web3(Web3.HTTPProvider(connectionUrl))
 	except:
 		sys.exit("[ERROR] There was an error with connecting to the Infura APIs. Check your API key and the config file for issues.")
 	# Double check our connection works
@@ -173,7 +173,7 @@ def findANonZeroBalance(entropy):
 		print("[INFO] Generated address: " + pubKey + " , testing for balances ...")
 	
 	# Balance is returned in wei
-	balance = web3Instance.eth.getBalance(pubKey)
+	balance = web3Instance.eth.get_balance(pubKey)
 	
 	# Save relevant data
 	reporting(pubKey, privKey, balance)
