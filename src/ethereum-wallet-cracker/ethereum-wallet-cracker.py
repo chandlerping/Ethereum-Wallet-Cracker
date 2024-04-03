@@ -3,7 +3,7 @@
 # (c) 2022-Present Keewenaw
 # Not actively updated - use at your own risk
 
-import os, sys, csv, eth_utils
+import os, sys, csv, eth_utils, random
 from web3 import Web3
 from eth_account.account import Account
 from configparser import ConfigParser
@@ -241,37 +241,65 @@ def main():
 			tempLine = bytes(tempLine, 'utf-8')
 
 			# Generate address permutations
-			tempLineByteLength = getsizeof(tempLine)
-
-			# Do basic entropy permutations
-			# Only allowed keylengths are defined in BIP39 
-			for maxByteLength in [128, 160, 192, 224, 256]:
-				# Too long, just use the first or last maxByteLength bytes
-				if (tempLineByteLength > maxByteLength):
-					# First maxByteLength bytes
-					findANonZeroBalance(tempLine[:maxByteLength])
-
-					# Last maxByteLength bytes
-					findANonZeroBalance(tempLine[len(tempLine) - maxByteLength:])
-
-				# Edge case - line doesn't exist or isn't working
-				elif (tempLineByteLength < 0):
-					findANonZeroBalance('')
-
-				# Proper length entropy
-				else:
-					pad = maxByteLength - tempLineByteLength
-
-					# Pad on the left
-					findANonZeroBalance(bytes(pad) + tempLine)
-			
-					# Pad on the right
-					findANonZeroBalance(tempLine + bytes(pad))
-
-					# Pad 50/50 Left/Right split
-					findANonZeroBalance(bytes(int(pad / 2)) + tempLine + bytes(int(pad / 2)) + bytes(int(pad % 2)))
+			entropyList = generateEntropies(tempLine)
+			for entropy in entropyList:
+				findANonZeroBalance(entropy)
 				
 	print("[INFO] Keygen complete, keypair details are located at:\n\t\'" + dbFileLocation + "\'")
+
+# [new feature] 
+# Add more permutations to the original entropies
+def generateEntropies(tempLine):
+	entropyList = []
+	tempLineByteLength = getsizeof(tempLine)
+
+	# get a list of raw entropies, with allowed keylengths
+	for maxByteLength in [128, 160, 192, 224, 256]:
+		if tempLineByteLength < 0:
+			continue
+		elif tempLineByteLength > maxByteLength:
+			entropyList.append(tempLine[:maxByteLength])
+			entropyList.append(tempLine[len(tempLine) - maxByteLength:])
+		else:
+			pad = maxByteLength - tempLineByteLength
+			entropyList.append(bytes(pad) + tempLine)
+			entropyList.append(tempLine + bytes(pad))
+			entropyList.append(bytes(int(pad / 2)) + tempLine + bytes(int(pad / 2)) + bytes(int(pad % 2)))
+
+	# fuzzing
+	oldLen = len(entropyList)
+	for i in range(0, oldLen):
+		entropyList += [permutate(entropyList[i])]
+	
+	return entropyList
+
+# Permutate an entropy
+def permutate(entropy):
+	flag = random.randint(0, 3)
+	length = len(entropy)
+	# convert to list
+	entropy = list(entropy)
+
+	if flag == 0:
+		# replace a part of the entropy with completely random bytes
+		start = random.randint(0, int(length / 2))
+		end = random.randint(int(length / 2), length - 1)
+		for i in range(start, end):
+			entropy[i] = random.randint(0, 255)
+	elif flag == 1:
+		# fuzz the byte by flipping some of its bits
+		for i in range(length):
+			entropy[i] ^= random.randint(0, 255)
+	elif flag == 2:
+		# shuffle it
+		random.shuffle(entropy)
+	elif flag == 3:
+		# padding
+		pivot  = random.randint(1, length - 1)
+		entropy = entropy[pivot + 1 :] + entropy[0 : pivot + 1]
+	# convert to bytes
+	return bytes(entropy)
+
 
 # We're invoking the program directly and not via importation
 if __name__=="__main__":
