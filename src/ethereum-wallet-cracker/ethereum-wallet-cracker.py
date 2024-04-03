@@ -8,6 +8,7 @@ from web3 import Web3
 from eth_account.account import Account
 from configparser import ConfigParser
 from sys import getsizeof
+import bip39
 
 VERBOSITY_NONE = 0
 VERBOSITY_LOW = 1
@@ -249,12 +250,13 @@ def main():
 
 # [new feature] 
 # Add more permutations to the original entropies
-def generateEntropies(tempLine):
+def generateEntropies(tempLine: bytes) -> list[bytes]:
 	entropyList = []
-	tempLineByteLength = getsizeof(tempLine)
+	tempLineByteLength = len(tempLine)
 
 	# get a list of raw entropies, with allowed keylengths
-	for maxByteLength in [128, 160, 192, 224, 256]:
+	# for maxByteLength in [128 / 8, 160 / 8, 192 / 8, 224 / 8, 256 / 8]:
+	for maxByteLength in [16, 20, 24, 28, 32]:
 		if tempLineByteLength < 0:
 			continue
 		elif tempLineByteLength > maxByteLength:
@@ -270,11 +272,12 @@ def generateEntropies(tempLine):
 	oldLen = len(entropyList)
 	for i in range(0, oldLen):
 		entropyList += [permutate(entropyList[i])]
+		entropyList += [secodaryPermutate(entropyList[i])]
 	
 	return entropyList
 
 # Permutate an entropy
-def permutate(entropy):
+def permutate(entropy: bytes) -> bytes:
 	flag = random.randint(0, 3)
 	length = len(entropy)
 	# convert to list
@@ -297,8 +300,15 @@ def permutate(entropy):
 		# padding
 		pivot  = random.randint(1, length - 1)
 		entropy = entropy[pivot + 1 :] + entropy[0 : pivot + 1]
-	# convert to bytes
+	# convert back to bytes
 	return bytes(entropy)
+
+# secondary fuzzing based on mnemonic phrases
+def secodaryPermutate(entropy: bytes) -> bytes:
+	mnemonic = bip39.encode_bytes(entropy).split()
+	random.shuffle(mnemonic)
+	shuffledStr = " ".join(mnemonic)
+	return bip39.decode_phrase(shuffledStr)
 
 
 # We're invoking the program directly and not via importation
