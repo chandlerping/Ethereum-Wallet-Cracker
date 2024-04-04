@@ -4,11 +4,12 @@
 # Not actively updated - use at your own risk
 
 import os, sys, csv, eth_utils, random
+import permutate, loadbalance
 from web3 import Web3
 from eth_account.account import Account
 from configparser import ConfigParser
 from sys import getsizeof
-import bip39
+
 
 VERBOSITY_NONE = 0
 VERBOSITY_LOW = 1
@@ -174,7 +175,13 @@ def findANonZeroBalance(entropy):
 		print("[INFO] Generated address: " + pubKey + " , testing for balances ...")
 	
 	# Balance is returned in wei
-	balance = web3Instance.eth.get_balance(pubKey)
+	balance = 0
+	try:
+		balance = web3Instance.eth.get_balance(pubKey)
+	except Exception as e:
+		print(e)
+		loadbalance.addErr()
+		pass
 	
 	# Save relevant data
 	reporting(pubKey, privKey, balance)
@@ -216,6 +223,9 @@ def main():
 	# Set or check the values in the config file
 	checkConfig()
 
+	# initialize load balancer
+	loadbalance.initialize()
+
 	# Check the API connection
 	global web3Instance
 	web3Instance = connect(connectionUrl)
@@ -230,7 +240,10 @@ def main():
 		except:
 			print("[ERROR] Unknown issue opening file \'" + str(sourceFile) + "\', moving to next file ... ")
 			continue
-		for textLine in lines:
+		i = 0
+		for textLine in lines[0:20]:
+			print(i)
+			i += 1
 			# Get the line from the file and format it for our Ethereum tools
 			try:
 				tempLine = str(textLine).strip()
@@ -242,74 +255,12 @@ def main():
 			tempLine = bytes(tempLine, 'utf-8')
 
 			# Generate address permutations
-			entropyList = generateEntropies(tempLine)
+			entropyList = permutate.generateEntropies(tempLine)
 			for entropy in entropyList:
+				loadbalance.loadBalance()
 				findANonZeroBalance(entropy)
 				
 	print("[INFO] Keygen complete, keypair details are located at:\n\t\'" + dbFileLocation + "\'")
-
-# [new feature] 
-# Add more permutations to the original entropies
-def generateEntropies(tempLine: bytes) -> list[bytes]:
-	entropyList = []
-	tempLineByteLength = len(tempLine)
-
-	# get a list of raw entropies, with allowed keylengths
-	# for maxByteLength in [128 / 8, 160 / 8, 192 / 8, 224 / 8, 256 / 8]:
-	for maxByteLength in [16, 20, 24, 28, 32]:
-		if tempLineByteLength < 0:
-			continue
-		elif tempLineByteLength > maxByteLength:
-			entropyList.append(tempLine[:maxByteLength])
-			entropyList.append(tempLine[len(tempLine) - maxByteLength:])
-		else:
-			pad = maxByteLength - tempLineByteLength
-			entropyList.append(bytes(pad) + tempLine)
-			entropyList.append(tempLine + bytes(pad))
-			entropyList.append(bytes(int(pad / 2)) + tempLine + bytes(int(pad / 2)) + bytes(int(pad % 2)))
-
-	# fuzzing
-	oldLen = len(entropyList)
-	for i in range(0, oldLen):
-		entropyList += [permutate(entropyList[i])]
-		entropyList += [secodaryPermutate(entropyList[i])]
-	
-	return entropyList
-
-# Permutate an entropy
-def permutate(entropy: bytes) -> bytes:
-	flag = random.randint(0, 3)
-	length = len(entropy)
-	# convert to list
-	entropy = list(entropy)
-
-	if flag == 0:
-		# replace a part of the entropy with completely random bytes
-		start = random.randint(0, int(length / 2))
-		end = random.randint(int(length / 2), length - 1)
-		for i in range(start, end):
-			entropy[i] = random.randint(0, 255)
-	elif flag == 1:
-		# fuzz the byte by flipping some of its bits
-		for i in range(length):
-			entropy[i] ^= random.randint(0, 255)
-	elif flag == 2:
-		# shuffle it
-		random.shuffle(entropy)
-	elif flag == 3:
-		# padding
-		pivot  = random.randint(1, length - 1)
-		entropy = entropy[pivot + 1 :] + entropy[0 : pivot + 1]
-	# convert back to bytes
-	return bytes(entropy)
-
-# secondary fuzzing based on mnemonic phrases
-def secodaryPermutate(entropy: bytes) -> bytes:
-	mnemonic = bip39.encode_bytes(entropy).split()
-	random.shuffle(mnemonic)
-	shuffledStr = " ".join(mnemonic)
-	return bip39.decode_phrase(shuffledStr)
-
 
 # We're invoking the program directly and not via importation
 if __name__=="__main__":
