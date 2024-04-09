@@ -24,7 +24,7 @@ def generateEntropies(tempLine: bytes) -> list[bytes]:
 	oldLen = len(entropyList)
 	for i in range(0, oldLen):
 		entropyList += [permutate(entropyList[i])]
-		entropyList += [secodaryPermutate(entropyList[i])]
+		entropyList += [secondaryPermutate(entropyList[i])]
 	
 	return entropyList
 
@@ -49,14 +49,14 @@ def permutate(entropy: bytes) -> bytes:
 		# shuffle it
 		random.shuffle(entropy)
 	elif flag == 3:
-		# padding
+		# turn around
 		pivot  = random.randint(1, length - 1)
 		entropy = entropy[pivot + 1 :] + entropy[0 : pivot + 1]
 	# convert back to bytes
 	return bytes(entropy)
 
 # secondary fuzzing based on mnemonic phrases
-def secodaryPermutate(entropy: bytes) -> bytes:
+def secondaryPermutate(entropy: bytes) -> bytes:
 	mnemonic = bip39.encode_bytes(entropy).split()
 	random.shuffle(mnemonic)
 	shuffledStr = " ".join(mnemonic)
