@@ -5,23 +5,29 @@ import time
 def initialize():
     global err
     global oldErr
+    global sent_before
+    global recv_before
     err = 0
     oldErr = 0
+    sent_before = psutil.net_io_counters().bytes_sent
+    recv_before = psutil.net_io_counters().bytes_recv
 
 # get network traffic situation
 def getNet():
-    sent_before = psutil.net_io_counters().bytes_sent
-    recv_before = psutil.net_io_counters().bytes_recv
+    global sent_before
+    global recv_before
     sent_now = psutil.net_io_counters().bytes_sent
     recv_now = psutil.net_io_counters().bytes_recv
     sent = (sent_now - sent_before) / 1024
     recv = (recv_now - recv_before) / 1024
+    sent_before = sent_now
+    recv_before = recv_now
     return sent, recv
 
 def loadBalance():
     global err
     global oldErr
-    print(err, oldErr)
+    # print(err, oldErr)
     sent, recv = getNet()
     if sent >= 10 or recv >= 10:
         time.sleep(1)
